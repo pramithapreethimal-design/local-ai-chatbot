@@ -2,12 +2,22 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from openai import OpenAI
+from fastapi.middleware.cors import CORSMiddleware
+from typing import Literal
 
 import config
 
 app = FastAPI(
     title="Local AI Chatbot API",
     description="API powered by a local LLM using LM Studio"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 client = OpenAI(
@@ -18,8 +28,13 @@ client = OpenAI(
 
 
 # Request data structure
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
 class ChatRequest(BaseModel):
-    message: str
+    messages: list[ChatMessage]
 
 
 # Home endpoint
@@ -42,18 +57,21 @@ def health():
 @app.post("/chat")
 def chat(request: ChatRequest):
 
+    conversation = [
+        {
+            "role": "system",
+            "content": "You are a friendly AI programming tutor."
+        }
+    ]
+
+    conversation.extend(
+        message.model_dump()
+        for message in request.messages
+    )
+
     response = client.chat.completions.create(
         model=config.MODEL_NAME,
-        messages=[
-            {
-                "role": "system",
-                "content": "You are a friendly AI programming tutor."
-            },
-            {
-                "role": "user",
-                "content": request.message
-            }
-        ],
+        messages=conversation,
         temperature=config.TEMPERATURE,
         max_tokens=config.MAX_TOKENS
     )
@@ -61,6 +79,5 @@ def chat(request: ChatRequest):
     ai_reply = response.choices[0].message.content
 
     return {
-        "user_message": request.message,
         "ai_response": ai_reply
     }

@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from openai import OpenAI
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Literal
+from fastapi.responses import StreamingResponse
 
 import config
 
@@ -52,6 +53,21 @@ def health():
         "status": "healthy"
     }
 
+def generate_response(conversation):
+
+    response = client.chat.completions.create(
+        model=config.MODEL_NAME,
+        messages=conversation,
+        temperature=config.TEMPERATURE,
+        max_tokens=config.MAX_TOKENS,
+        stream=True
+    )
+
+    for chunk in response:
+        content = chunk.choices[0].delta.content
+
+        if content:
+            yield content
 
 # Chat endpoint
 @app.post("/chat")
@@ -73,10 +89,18 @@ def chat(request: ChatRequest):
         model=config.MODEL_NAME,
         messages=conversation,
         temperature=config.TEMPERATURE,
-        max_tokens=config.MAX_TOKENS
+        max_tokens=config.MAX_TOKENS,
+        stream=True
     )
 
-    ai_reply = response.choices[0].message.content
+    ai_reply = ""
+
+    for chunk in response:
+        content = chunk.choices[0].delta.content
+
+        if content:
+            print(content, end="", flush=True)
+            ai_reply += content
 
     return {
         "ai_response": ai_reply

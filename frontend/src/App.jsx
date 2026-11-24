@@ -27,12 +27,17 @@ function App() {
 
     try {
 
-      const response = await axios.post(
-        `${API_URL}/chat`,
-        {
-          message: userMessage
-        }
-      );
+        const updatedMessages = [
+      ...messages,
+      { role: "user", content: userMessage }
+    ];
+
+        const response = await axios.post(
+          `${API_URL}/chat`,
+          { messages: updatedMessages }
+        );
+
+        
 
       setMessages((previous) => [
         ...previous,
@@ -43,21 +48,36 @@ function App() {
       ]);
 
     } catch (error) {
+  console.error("API Error:", error);
 
-      console.error("API Error:", error);
+  let errorMessage = "Something went wrong.";
 
-      setMessages((previous) => [
-        ...previous,
-        {
-          role: "assistant",
-          content: "Sorry, something went wrong. Please check the backend."
-        }
-      ]);
+  if (error.response) {
+    errorMessage = `Server Error: ${
+      error.response.data.detail || error.response.statusText
+    }`;
+  } else if (error.request) {
+    errorMessage = "Cannot connect to the backend. Please check whether FastAPI is running.";
+  } else {
+    errorMessage = error.message;
+  }
 
-    } finally {
+  setMessages((previous) => [
+    ...previous,
+    {
+      role: "assistant",
+      content: errorMessage
+    }
+  ]);
+} finally {
       setLoading(false);
     }
   };
+
+  const clearChat = () => {
+  setMessages([]);
+  setMessage("");
+};
 
 
   return (
@@ -66,6 +86,12 @@ function App() {
       <header>
         <h1>Local AI Chatbot</h1>
         <p>Powered by LM Studio and FastAPI</p>
+
+          <button onClick={clearChat}>
+            + New Chat
+          </button>
+
+
       </header>
 
       <div className="chat-container">
@@ -88,11 +114,16 @@ function App() {
           ))}
 
           {loading && (
-            <div className="message assistant">
-              <strong>AI</strong>
-              <p>Thinking...</p>
-            </div>
-          )}
+  <div className="message assistant loading">
+    <strong>AI</strong>
+    <p>AI is thinking...</p>
+    <div className="typing-indicator">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+  </div>
+)}
 
         </div>
 

@@ -70,6 +70,7 @@ def generate_response(conversation):
             yield content
 
 # Chat endpoint
+
 @app.post("/chat")
 def chat(request: ChatRequest):
 
@@ -85,23 +86,7 @@ def chat(request: ChatRequest):
         for message in request.messages
     )
 
-    response = client.chat.completions.create(
-        model=config.MODEL_NAME,
-        messages=conversation,
-        temperature=config.TEMPERATURE,
-        max_tokens=config.MAX_TOKENS,
-        stream=True
+    return StreamingResponse(
+        generate_response(conversation),
+        media_type="text/plain"
     )
-
-    ai_reply = ""
-
-    for chunk in response:
-        content = chunk.choices[0].delta.content
-
-        if content:
-            print(content, end="", flush=True)
-            ai_reply += content
-
-    return {
-        "ai_response": ai_reply
-    }

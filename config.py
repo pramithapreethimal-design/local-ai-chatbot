@@ -1,10 +1,12 @@
+import os
+from dotenv import load_dotenv
 
-BASE_URL = "http://localhost:1234/v1"
+# Load environment variables
+load_dotenv()
 
-API_KEY = "lm-studio"
+BASE_URL = os.getenv("BASE_URL")
+API_KEY = os.getenv("API_KEY")
+MODEL_NAME = os.getenv("MODEL_NAME")
 
-MODEL_NAME = "llama-3.2-3b-instruct"
-
-TEMPERATURE = 0.7
-
-MAX_TOKENS = 300
+TEMPERATURE = float(os.getenv("TEMPERATURE", 0.7))
+MAX_TOKENS = int(os.getenv("MAX_TOKENS", 300))

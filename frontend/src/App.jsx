@@ -11,68 +11,102 @@ function App() {
 
   const API_URL = "http://127.0.0.1:8000";
 
-  const sendMessage = async () => {
 
-    if (!message.trim() || loading) return;
+const sendMessage = async () => {
+  if (!message.trim() || loading) return;
 
-    const userMessage = message;
+  const userMessage = message;
 
-    setMessages((previous) => [
-      ...previous,
-      { role: "user", content: userMessage }
-    ]);
+  const updatedMessages = [
+    ...messages,
+    { role: "user", content: userMessage }
+  ];
 
-    setMessage("");
-    setLoading(true);
-
-    try {
-
-        const updatedMessages = [
-      ...messages,
-      { role: "user", content: userMessage }
-    ];
-
-        const response = await axios.post(
-          `${API_URL}/chat`,
-          { messages: updatedMessages }
-        );
-
-        
-
-      setMessages((previous) => [
-        ...previous,
-        {
-          role: "assistant",
-          content: response.data.ai_response
-        }
-      ]);
-
-    } catch (error) {
-  console.error("API Error:", error);
-
-  let errorMessage = "Something went wrong.";
-
-  if (error.response) {
-    errorMessage = `Server Error: ${
-      error.response.data.detail || error.response.statusText
-    }`;
-  } else if (error.request) {
-    errorMessage = "Cannot connect to the backend. Please check whether FastAPI is running.";
-  } else {
-    errorMessage = error.message;
-  }
-
-  setMessages((previous) => [
-    ...previous,
-    {
-      role: "assistant",
-      content: errorMessage
-    }
+  setMessages([
+    ...updatedMessages,
+    { role: "assistant", content: "" }
   ]);
-} finally {
-      setLoading(false);
+
+  setMessage("");
+  setLoading(true);
+
+  try {
+    const response = await fetch(`${API_URL}/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messages: updatedMessages
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Server Error: ${response.status}`);
     }
-  };
+
+    if (!response.body) {
+      throw new Error("Streaming response is not available.");
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    let aiReply = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+
+      aiReply += chunk;
+
+      setMessages(previous => {
+        const updated = [...previous];
+
+        updated[updated.length - 1] = {
+          role: "assistant",
+          content: aiReply
+        };
+
+        return updated;
+      });
+    }
+
+    aiReply += decoder.decode();
+
+    setMessages(previous => {
+      const updated = [...previous];
+
+      updated[updated.length - 1] = {
+        role: "assistant",
+        content: aiReply
+      };
+
+      return updated;
+    });
+
+  } catch (error) {
+    console.error("API Error:", error);
+
+    setMessages(previous => {
+      const updated = [...previous];
+
+      updated[updated.length - 1] = {
+        role: "assistant",
+        content: `Error: ${error.message}`
+      };
+
+      return updated;
+    });
+
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const clearChat = () => {
   setMessages([]);
